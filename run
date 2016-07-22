@@ -1,0 +1,54 @@
+#!/usr/bin/env ruby
+
+require 'pry'
+require 'httparty'
+require 'csv'
+require 'dotenv'
+
+Dotenv.load
+
+puts 'Initiate params and libraries'
+
+params = URI.encode_www_form(
+  keywords: 'Specialized',
+  per_page: 24,
+  category_id: 242
+)
+bl_host = ENV['BL_HOST']
+product = ENV['PRODUCT_ENDPOINT']
+
+csv_location = ENV['DUMMY_SAVE_LOC']
+csv_header = ['Nama Barang', 'Stok', 'Berat (gram)',
+              'Harga (Rupiah)', 'Kondisi',
+              'Deskripsi', 'Wajib Asuransi?',
+              'Type', 'Brand',
+              'Ukuran', 'Bahan', 'URL Gambar 1',
+              'URL Gambar 2', 'URL Gambar 3',
+              'URL Gambar 4', 'URL Gambar 5']
+
+executed_url = "#{bl_host}/#{product}?#{params}"
+
+puts "attempt GET request to #{executed_url}"
+response = HTTParty.get(executed_url)
+if response['status'] == 'OK'
+  puts 'HTTP OK'
+  puts "get #{response['products'].size} products"
+  CSV.open(csv_location, 'w') do |writer|
+    writer << csv_header
+    response['products'].each do |prod|
+      begin
+        insurance_state = prod['force_insurance'] ? 'Ya' : 'Tidak'
+        writer << [prod['name'], prod['stock'], prod['weight'],
+                   prod['price'], 'Baru',
+                   prod['desc'], insurance_state,
+                   'Roadbike', prod['specs']['brand'],
+                   prod['specs']['ukuran'], prod['specs']['bahan'], prod['images'][0],
+                   prod['images'][1], prod['images'][2], prod['images'][3], prod['images'][4]
+                  ]
+        puts 'write completed'
+      rescue StandardError => e
+        puts "an error caused by #{e}"
+      end
+    end
+  end
+end
